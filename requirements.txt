@@ -1,7 +1,6 @@
 cffi==1.14.3
 chardet==3.0.4
 cryptography==3.2
-pdfminer==20191125
 pdfminer.six==20201018
 pdfrw==0.4
 pycparser==2.20

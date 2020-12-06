@@ -1,27 +1,21 @@
-#!/usr/bin/env python
-
-"""
-Use this script to scrape results and demographics from all DiaCarta PDFs in a directory
-"""
-
-import sys
+import csv
+import datetime
+import glob
 import os
-import shutil
-
-from pdfminer.high_level import extract_text 
+from pdfminer.high_level import extract_text
+import re
+import sys
 
 """Deal with arguments"""
 path = './Results'
 dirs = os.listdir( path )
 
-for file in dirs:
-    file_path = 'Results/' + file
-    if not os.path.isdir(file_path):
-        pdfFileObj = open(file_path, 'rb')
-        pdf_text = extract_text(pdfFileObj)
-        print(pdf_text)
+"""Deal with arguments"""
+pdf_dir = './Results'    # within this file, pdfs named <req_id>.pdf
 
-
+if not os.path.exists(pdf_dir):
+    sys.stderr.write("No directory {}\n".format(pdf_dir))
+    exit(1)
 
 result_re = re.compile(r'Result\s+(?P<match>[a-zA-Z ]+)\n')
 name_re = re.compile(r'(?!Facility )Name:\s+(?P<match>[a-zA-Z ]+)\s+')
@@ -57,13 +51,15 @@ def match_pdf_text(text, regex, as_date=False):
 
 def get_data_from_pdf(pdf_fp):
     pdf_text = extract_text(pdf_fp)
+    split_version = list(filter(lambda a: (a != '' and a != ' '), pdf_text.split("\n")))
+    print("Name: {}, Req ID: {}, Date Collected: {}, DOB: {}, Result: {}".format(split_version[7], split_version[13], split_version[14], split_version[21], split_version[33]))
 
-    #name = match_pdf_text(pdf_text, name_re)
+    name = match_pdf_text(pdf_text, name_re)
     result = match_pdf_text(pdf_text, result_re)
     #mrn = match_pdf_text(pdf_text, mrn_re)
     req_id = match_pdf_text(pdf_text, req_re)
 
-    # dob = match_pdf_text(pdf_text, dob_re, True)
+    dob = match_pdf_text(pdf_text, dob_re, True)
     # collected = match_pdf_text(pdf_text, collected_re, True)
     # received = match_pdf_text(pdf_text, received_re, True)
     # reported = match_pdf_text(pdf_text, reported_re, True)
@@ -81,8 +77,8 @@ def get_data_from_pdf(pdf_fp):
         ])
     ))
     return {
-        #'name': name,
-        #'dob': dob,
+        'name': name,
+        'dob': dob,
         'result': result,
         #'mrn': mrn,
         #'collected': collected,
@@ -91,33 +87,10 @@ def get_data_from_pdf(pdf_fp):
         'req_id': req_id,
     }
 
-reqs = []
-with open(reqs_fp, 'r') as f:
-    reader = csv.DictReader(f, delimiter="\t")
-    for row in reader:
-        reqs.append(row['req_id'])
-    f.close()
-
-output_lines = []
-for req in reqs:
-    pdf_fp = os.path.join(pdf_dir, "{}.pdf".format(req))
-    if os.path.exists(pdf_fp):
-        this_dict = get_data_from_pdf(pdf_fp)
-        this_dict['file'] = pdf_fp
-        output_lines.append(this_dict)
-    else:
-        sys.stderr.write("No file: {}\n".format(pdf_fp))
-
-
-with open(output_fp, 'w') as f:
-    writer = csv.DictWriter(
-        f,
-        delimiter="\t",
-        fieldnames=output_lines[0].keys()
-    )
-    writer.writeheader()
-    for line in output_lines:
-        writer.writerow(line)
-    f.close()
+for file in dirs:
+    file_path = 'Results/' + file
+    if (not os.path.isdir(file_path) and file.split(".")[-1] == "pdf"):
+        this_dict = get_data_from_pdf(file_path)
+        print(this_dict)
 
 sys.stdout.write("Done\n")
